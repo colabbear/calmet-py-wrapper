@@ -15,7 +15,7 @@ def read_ascii_CALMET_DAT(file_path):
                 ncom = int(line.strip())
 
             if ncom < 0 or (ncom > 0 and ncom+4 > i+1):
-                # 각 변수 출력 이전 데이터 읽기 ncom+4부터 ZFACE 변수 부터 출력됨 calmet.for 주석에 명시되어 있음
+                # 각 변수 출력 이전 데이터 읽기 ncom+4부터 ZFACE 변수를 시작으로 출력되어있음 calmet.for 주석에 명시되어 있음
 
                 # 각 줄마다 느낌표 사이에 있는 문자열 찾기
                 matches = re.findall(r'!(.*?)!', line)
@@ -46,6 +46,7 @@ def read_ascii_CALMET_DAT(file_path):
 
                 line = line.strip()
                 # 변수명
+                # calmet.for 에서 clabel은 character*8 로 선언되어 있으므로 문자열 시작하는 곳 부터 8자리를 clabel로 읽어야 함
                 clabel = line[0:8].strip()
 
                 temp = line[8:].split()

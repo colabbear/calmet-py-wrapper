@@ -34,9 +34,9 @@ if __name__ == "__main__":
     lat_sample = lat_sample.reshape(nx, ny)
     lon_sample = np.array(data['0']['XLON'])
     lon_sample = lon_sample.reshape(nx, ny)
-    u_sample = np.array(data['202400112']['U-LEV  1'])
+    u_sample = np.array(data['202400106']['U-LEV  1'])
     u_sample = u_sample.reshape(nx, ny)
-    v_sample = np.array(data['202400112']['V-LEV  1'])
+    v_sample = np.array(data['202400106']['V-LEV  1'])
     v_sample = v_sample.reshape(nx, ny)
 
 
@@ -57,5 +57,5 @@ if __name__ == "__main__":
     # ax1.scatter(grid_x.flatten(), grid_y.flatten())
     # ax1.contour(grid_x, grid_y, grid_z, levels=np.arange(-10, 30, 1))
     # ax1.quiver(grid_xx, grid_yy, grid_u, grid_v, scale=100)
-    ax1.quiver(lon_sample, lat_sample, u_sample, v_sample, scale=100)
+    ax1.quiver(lon_sample, lat_sample, u_sample, v_sample, scale=150)
     plt.show()
