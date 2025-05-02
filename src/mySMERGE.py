@@ -24,6 +24,7 @@ def read_ASOS(source_folder):
                 df = pd.read_csv(csv_file_path, encoding="cp949")
 
                 # 일시 칼럼을 인덱스로 설정
+                # 파일 내에 지점이 여러개일 때 인덱스에 중복이 발생하지만 지점별로 저장하기에 문제 없을 것임
                 df = df.set_index("일시")
                 # datetime 형식으로 변경
                 df.index = pd.to_datetime(df.index)
@@ -69,7 +70,14 @@ def read_ASOS(source_folder):
                 df.loc[(df["강수량(mm)"] < 9999.) & (df["강수량(mm)"] >= 0.01) & (df["기온(K)"] < 273.15), "IPCODE"] = 20
 
                 for stnID in df["지점"].unique():
-                    df_tot[stnID] = df.loc[df["지점"] == stnID]
+                    # 같은 지점 다른 데이터가 있는 경우 같은 인덱스는 덮어쓰는 형태로 합치기
+                    if stnID in df_tot:
+                        # 수직으로 합치기
+                        df_tot[stnID] = pd.concat([df_tot[stnID], df], axis=0)
+                        # 중복 인덱스(일자) 제거
+                        df_tot[stnID] = df_tot[stnID].loc[~df_tot[stnID].index.duplicated(keep='last')]
+                    else:
+                        df_tot[stnID] = df.loc[df["지점"] == stnID]
 
 
 
@@ -87,6 +95,7 @@ def read_AWS(source_folder):
                 df = pd.read_csv(csv_file_path, encoding="cp949")
 
                 # 일시 칼럼을 인덱스로 설정
+                # 파일 내에 지점이 여러개일 때 인덱스에 중복이 발생하지만 지점별로 저장하기에 문제 없을 것임
                 df = df.set_index("일시")
                 # datetime 형식으로 변경
                 df.index = pd.to_datetime(df.index)
@@ -118,19 +127,33 @@ def read_AWS(source_folder):
                 df.loc[(df["강수량(mm)"] < 9999.) & (df["강수량(mm)"] >= 0.01) & (df["기온(K)"] < 273.15), "IPCODE"] = 20
 
                 for stnID in df["지점"].unique():
-                    df_tot[stnID] = df.loc[df["지점"] == stnID]
+                    # 같은 지점 다른 데이터가 있는 경우 같은 인덱스는 덮어쓰는 형태로 합치기
+                    if stnID in df_tot:
+                        # 수직으로 합치기
+                        df_tot[stnID] = pd.concat([df_tot[stnID], df], axis=0)
+                        # 중복 인덱스(일자) 제거
+                        df_tot[stnID] = df_tot[stnID].loc[~df_tot[stnID].index.duplicated(keep='last')]
+                    else:
+                        df_tot[stnID] = df.loc[df["지점"] == stnID]
 
 
 
-def write_surf_dat():
-    read_ASOS("./test_data/asos")
-    read_AWS("./test_data/aws")
+def write_surf_dat(output_path, startDt="", endDt="", asos_path="", aws_path=""):
+    global df_tot
+    global header
+    if len(asos_path) + len(aws_path) == 0:
+        print("Please set the path that there is data")
+        return 0
+    if len(startDt) * len(endDt) == 0:
+        print("Please set the date(YYYYMMDDHHmm) that you want to set")
+        return 0
+    if len(asos_path) > 0:
+        read_ASOS(asos_path)
+    if len(aws_path) > 0:
+        read_AWS(aws_path)
 
-    startDt = "202403010000"
-    endDt = "202403312300"
 
-    startDt = "202403010000"
-    endDt = "202403312300"
+
     startDt = datetime.strptime(startDt, '%Y%m%d%H%M')
     endDt = datetime.strptime(endDt, '%Y%m%d%H%M')
 
@@ -140,8 +163,6 @@ def write_surf_dat():
         time_series.append(currentDt)
         currentDt += timedelta(hours=1)  # 1시간 간격
 
-    print(header)
-
     startYYYY = startDt.year
     startJJJ = startDt.timetuple().tm_yday
     startHH = startDt.hour
@@ -150,43 +171,49 @@ def write_surf_dat():
     endHH = endDt.hour
     header2 = "{:6d}{:4d}{:4d}{:6d}{:4d}{:4d}{:5d}{:5d}".format(startYYYY, startJJJ, startHH, endYYYY, endJJJ, endHH,
                                                                 -9, len(df_tot))
-    print(header2)
 
-    stations = []
-    for stnID in df_tot:
-        print("{:8d}".format(stnID))
-        stations.append(stnID)
 
-    for t in time_series:
-        YYYY = t.year
-        JJJ = t.timetuple().tm_yday
-        HH = t.hour
-        rowTime = "{:4d}{:4d}{:4d}".format(YYYY, JJJ, HH)
-        print(rowTime)
-        for stnID in stations:
-            # 특정 시간대 자료가 없는 경우 모두 결측 처리
-            if t in df_tot[stnID].index:
-                rowTemp = " {:8.3f} {:8.3f} {:4d} {:4d} {:8.3f} {:4d} {:8.3f} {:4d}".format(
-                    df_tot[stnID].at[t, "풍속(m/s)"],
-                    df_tot[stnID].at[t, "풍향(deg)"],
-                    df_tot[stnID].at[t, "최저운고(100ft )"],
-                    df_tot[stnID].at[t, "전운량(10분위)"],
-                    df_tot[stnID].at[t, "기온(K)"],
-                    df_tot[stnID].at[t, "습도(%)"],
-                    df_tot[stnID].at[t, "현지기압(hPa)"],
-                    df_tot[stnID].at[t, "IPCODE"])
-            else:
-                rowTemp = " {:8.3f} {:8.3f} {:4d} {:4d} {:8.3f} {:4d} {:8.3f} {:4d}".format(9999.,
-                                                                                            9999.,
-                                                                                            9999,
-                                                                                            9999,
-                                                                                            9999.,
-                                                                                            9999,
-                                                                                            9999.,
-                                                                                            9999)
-            print(rowTemp)
+    # fortran 의 formatted 출력의 인코딩이 ascii로 알려져 있음
+    with open(output_path, "w", encoding="ascii") as f:
+
+        f.write(header + "\n")
+        f.write(header2 + "\n")
+
+        stations = []
+        for stnID in df_tot:
+            f.write("{:8d}".format(stnID) + "\n")
+            stations.append(stnID)
+
+        for t in time_series:
+            YYYY = t.year
+            JJJ = t.timetuple().tm_yday
+            HH = t.hour
+            rowTime = "{:4d}{:4d}{:4d}".format(YYYY, JJJ, HH)
+            f.write(rowTime + "\n")
+            for stnID in stations:
+                # 특정 시간대 자료가 없는 경우 모두 결측 처리
+                if t in df_tot[stnID].index:
+                    rowTemp = " {:8.3f} {:8.3f} {:4d} {:4d} {:8.3f} {:4d} {:8.3f} {:4d}".format(
+                        df_tot[stnID].at[t, "풍속(m/s)"],
+                        df_tot[stnID].at[t, "풍향(deg)"],
+                        df_tot[stnID].at[t, "최저운고(100ft )"],
+                        df_tot[stnID].at[t, "전운량(10분위)"],
+                        df_tot[stnID].at[t, "기온(K)"],
+                        df_tot[stnID].at[t, "습도(%)"],
+                        df_tot[stnID].at[t, "현지기압(hPa)"],
+                        df_tot[stnID].at[t, "IPCODE"])
+                else:
+                    rowTemp = " {:8.3f} {:8.3f} {:4d} {:4d} {:8.3f} {:4d} {:8.3f} {:4d}".format(9999.,
+                                                                                                9999.,
+                                                                                                9999,
+                                                                                                9999,
+                                                                                                9999.,
+                                                                                                9999,
+                                                                                                9999.,
+                                                                                                9999)
+                f.write(rowTemp + "\n")
 
 
 
 if __name__ == "__main__":
-    write_surf_dat()
+    write_surf_dat("./surf.dat", asos_path="./test_data/asos", aws_path="./test_data/aws", startDt="202403010000", endDt="202403312300")
