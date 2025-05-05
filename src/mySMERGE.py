@@ -190,6 +190,9 @@ def write_surf_dat(output_path, startDt="", endDt="", asos_path="", aws_path="")
             HH = t.hour
             rowTime = "{:4d}{:4d}{:4d}".format(YYYY, JJJ, HH)
             f.write(rowTime + "\n")
+
+            print(isAllDataMissing(t, stations))
+
             for stnID in stations:
                 # 특정 시간대 자료가 없는 경우 모두 결측 처리
                 if t in df_tot[stnID].index:
@@ -211,7 +214,41 @@ def write_surf_dat(output_path, startDt="", endDt="", asos_path="", aws_path="")
                                                                                                 9999,
                                                                                                 9999.,
                                                                                                 9999)
+
                 f.write(rowTemp + "\n")
+
+
+
+def isAllDataMissing(t, stations):
+    global df_tot
+    num_dataMissing = {
+        "최저운고(100ft )": 0,
+        "전운량(10분위)": 0,
+        "기온(K)": 0,
+        "습도(%)": 0,
+        "현지기압(hPa)": 0,
+    }
+    for stnID in stations:
+        if t in df_tot[stnID].index:
+            if df_tot[stnID].at[t, "최저운고(100ft )"] == 9999: num_dataMissing["최저운고(100ft )"] += 1
+            if df_tot[stnID].at[t, "전운량(10분위)"] == 9999: num_dataMissing["전운량(10분위)"] += 1
+            if df_tot[stnID].at[t, "기온(K)"] == 9999.: num_dataMissing["기온(K)"] += 1
+            if df_tot[stnID].at[t, "습도(%)"] == 9999: num_dataMissing["습도(%)"] += 1
+            if df_tot[stnID].at[t, "현지기압(hPa)"] == 9999.: num_dataMissing["현지기압(hPa)"] += 1
+        else:
+            num_dataMissing["최저운고(100ft )"] += 1
+            num_dataMissing["전운량(10분위)"] += 1
+            num_dataMissing["기온(K)"] += 1
+            num_dataMissing["습도(%)"] += 1
+            num_dataMissing["현지기압(hPa)"] += 1
+
+    for i in num_dataMissing:
+        if num_dataMissing[i] >= len(stations):
+            num_dataMissing[i] = 1
+        else:
+            num_dataMissing[i] = 0
+
+    return num_dataMissing
 
 
 
