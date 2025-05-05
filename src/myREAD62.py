@@ -175,4 +175,4 @@ def write_up_dat(output_path, pstop=700.0, startDt="", endDt="", sonde_path=""):
 if __name__ == "__main__":
     # read_SONDE("./test_data/sonde")
     # print(df_tot[47138].at[df_tot[47138].index[0], ])
-    write_up_dat("./UP.DAT", sonde_path="./test_data/sonde", pstop=500, startDt="202403010000", endDt="202403312300")
+    write_up_dat("./UP.DAT", sonde_path="./test_data/sonde", pstop=500, startDt="202402250000", endDt="202403312300")
