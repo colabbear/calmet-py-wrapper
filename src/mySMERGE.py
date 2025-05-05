@@ -63,6 +63,10 @@ def read_ASOS(source_folder):
                 # 풍향 칼럼 이름도 aws자료와 통일을 위해 변경
                 df = df.rename(columns={"기온(°C)": "기온(K)", "최저운고(100m )": "최저운고(100ft )", "풍향(16방위)": "풍향(deg)"})
 
+                # 최저운고 결측인 경우 Cloud base height 공식으로 얻은 값으로 대체 (이슬점 온도, 기온이 결측이 아닌 경우에만 할당 함)
+                condition = (df["최저운고(100ft )"] > 9998.) & (df["기온(K)"] < 9999.) & (~df["이슬점온도(°C)"].isna())
+                df.loc[condition, "최저운고(100ft )"] = ((10 / 2.5) * (df.loc[condition, "기온(K)"] - 273.15 - df.loc[condition, "이슬점온도(°C)"])).astype(int)
+
                 # IPCODE (Precipitation code) 추가 (SMERGE.for 코드를 참고함 잘 이해 안 되는 부분 있기 때문에 수정이 필요할 수 있음)
                 df["IPCODE"] = 9999
                 df.loc[df["강수량(mm)"] < 0.01, "IPCODE"] = 0
@@ -191,7 +195,11 @@ def write_surf_dat(output_path, startDt="", endDt="", asos_path="", aws_path="")
             rowTime = "{:4d}{:4d}{:4d}".format(YYYY, JJJ, HH)
             f.write(rowTime + "\n")
 
-            print(isAllDataMissing(t, stations))
+            # all data missing 있으면 출력하기
+            isAllmissing = isAllDataMissing(t, stations)
+            for i in isAllmissing:
+                if isAllmissing[i] == 1:
+                    print("There is all missing of " + i + " at " + str(t))
 
             for stnID in stations:
                 # 특정 시간대 자료가 없는 경우 모두 결측 처리
