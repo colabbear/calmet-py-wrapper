@@ -78,7 +78,7 @@ def write_up_dat(output_path, pstop=700.0, startDt="", endDt="", sonde_path=""):
     global df_tot
     global header
     iform = 1 # lash delimiter
-    jdat = 3 # kma csv format
+    jdat = 3 # kma csv format 문제될 시 2로 변경하기
     LHT = "F" # Drop Sounding level if no height
     LTEMP = "F" # Drop Sounding level if no temperature
     LWD = "F" # Drop Sounding level if no direction
@@ -95,7 +95,7 @@ def write_up_dat(output_path, pstop=700.0, startDt="", endDt="", sonde_path=""):
 
     read_SONDE(sonde_path)
 
-    istop =
+
 
     startDt = datetime.strptime(startDt, '%Y%m%d%H%M')
     endDt = datetime.strptime(endDt, '%Y%m%d%H%M')
@@ -114,7 +114,7 @@ def write_up_dat(output_path, pstop=700.0, startDt="", endDt="", sonde_path=""):
     endHH = endDt.hour
 
     # Header without location data
-    header2 = " {:5d}{:5d}{:5d}{:5d}{:5d}{:5d}{:5.0f}{:5d}{:5d}".format(startYYYY, startJJJ, startHH, endYYYY, endJJJ, endHH, pstop, jdat, iform)
+    header2 = " {:5d}{:5d}{:5d}{:5d}{:5d}{:5d}{:4.0f}.{:5d}{:5d}".format(startYYYY, startJJJ, startHH, endYYYY, endJJJ, endHH, pstop, jdat, iform)
     header3 = "     {:1s}    {:1s}    {:1s}    {:1s}".format(LHT, LTEMP, LWD, LWS)
 
 
@@ -126,28 +126,53 @@ def write_up_dat(output_path, pstop=700.0, startDt="", endDt="", sonde_path=""):
             f.write(header + "\n")
             f.write(header2 + "\n")
             f.write(header3 + "\n")
+
             for t in time_series:
-                YYYY = t.year
-                JJJ = t.timetuple().tm_yday
-                HH = t.hour
-                rowTime = "   6201  {:8s}   {:4d}{:2d}{:2d}{:2d}  {:5d}{' ' * 66}{:5d}".format(str(stnID), YYYY, )
-                f.write()
-
-                rowTemp = "   {:6.1f}/{:5.0}/{:5.1f}/{:3d}/{:3d}"
                 if t in df_tot[stnID].index:
+                    YYYY = t.year
+                    MM = t.month
+                    DD = t.day
+                    HH = t.hour
+                    # NUMLEV:               NUMBER OF REPEATING GROUPS -- THIS REPRESENTS
+                    #                       THE NUMBER OF DATA LEVELS FOUND IN THE CURRENT
+                    #                       OBSERVATION (79 IS THE MAXIMUM NUMBER STORED)
+                    mlev = len(df_tot[stnID].at[t, "기압(hPa)"])
+
+                    # istop 할당 READ62.for v5.54 1119번째 줄 참고함
+                    istop = 0
+                    # 기압 list 역순으로 얻기
+                    pres = df_tot[stnID].at[t, "기압(hPa)"].tolist()[::-1]
+                    for idx, i in enumerate(pres):
+                        if i <= pstop:
+                            istop = idx + 1
+                            break
+                    if istop == 0:
+                        print("error: istop = 0")
+                        return
+                    elif istop == 1: # READ62.for v5.54 1129번째 줄 참고함
+                        continue
+
+                    rowTime = ("   6201  {:8s}   {:4d}{:2d}{:2d}{:2d}  {:5d}" + ' '*28 + "{:5d}").format(str(stnID), YYYY, MM, DD, HH, mlev, istop)
+                    f.write(rowTime + "\n")
+
+                    rowTemp = "   {:6.1f}/{:4.0f}./{:5.1f}/{:3d}/{:3d}"
                     temp = ""
-                    for i in range(4):
-                        temp += rowTemp.format()
-
-                    rowTemp = rowTemp.format()
-
-                f.write()
-
-
-
-
+                    for i in range(istop):
+                        temp += rowTemp.format(
+                            df_tot[stnID].at[t, "기압(hPa)"].tolist()[::-1][i],
+                            df_tot[stnID].at[t, "고도(gpm)"].tolist()[::-1][i],
+                            df_tot[stnID].at[t, "기온(K)"].tolist()[::-1][i],
+                            df_tot[stnID].at[t, "풍향(deg)"].tolist()[::-1][i],
+                            int(df_tot[stnID].at[t, "풍속(m/s)"].tolist()[::-1][i]),
+                        )
+                        # 한 줄에 4개씩 출력함
+                        if i != istop-1 and i % 4 == 3:
+                            temp += "\n"
+                    f.write(temp + "\n")
 
 
 
 if __name__ == "__main__":
-    write_up_dat("./UP.DAT", sonde_path="./test_data/sonde", startDt="202403010000", endDt="202403312300")
+    # read_SONDE("./test_data/sonde")
+    # print(df_tot[47138].at[df_tot[47138].index[0], ])
+    write_up_dat("./UP.DAT", sonde_path="./test_data/sonde", pstop=500, startDt="202403010000", endDt="202403312300")
