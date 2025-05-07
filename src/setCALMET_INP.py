@@ -1,3 +1,11 @@
+"""
+2025/03/21
+작성자: colabbear
+1. setCALMET_INP 함수의 output_path 인자를 키워드 인자로 변경
+2. NSSTA 설정하도록 수정
+
+"""
+
 import os
 from datetime import datetime, timedelta
 import pandas as pd
@@ -59,9 +67,12 @@ def set_INPUT_GROUP_1(content, startDt="", endDt=""):
 
 
 
+# INPUT GROUP 4의 NSSTA도 함께 설정함
 def set_INPUT_GROUP_7(content, SRF_DAT_path="", startDt=""):
     if len(SRF_DAT_path) == 0:
         print("Please set the path")
+
+    target_nnsta = "Number of surface stations   (NSSTA)  No default     ! NSSTA = 9 !"
 
     target = """-------------------------------------------------------------------------------
 
@@ -76,7 +87,7 @@ INPUT GROUP: 7 -- Surface meteorological station parameters
          Name     ID     X coord.   Y coord.    Time   Anem.
                           (km)       (km)       zone   Ht.(m)
        ----------------------------------------------------------\n"""
-    rowTemp = "! SS1  ='{:s}'  {:>06d}  {:>8.3f}   {:>8.3f}       {:>d}    {:>8.3f}  !"
+    rowTemp = "! SS1  ='{:s}'  {:>6d}  {:>8.3f}   {:>8.3f}       {:>d}    {:>8.3f}  !"
 
     # surf.dat으로부터 지상관측지점 번호 얻기
     stations = []
@@ -99,6 +110,11 @@ INPUT GROUP: 7 -- Surface meteorological station parameters
             stations.append(int(line))
             if station_count == station_total_num:
                 break
+    # NNSTA 설정
+    content = content.replace(
+        target_nnsta,
+        "Number of surface stations   (NSSTA)  No default     ! NSSTA = {:d} !".format(len(stations))
+    )
 
     # 울산광역시 관측지점정보 불러오기
     df_asos = pd.read_csv("./static/asos_META_관측지점정보_20250204112738.csv", encoding="utf-8")
@@ -157,7 +173,7 @@ INPUT GROUP: 7 -- Surface meteorological station parameters
 
 
 
-def setCALMET_INP(output_path, startDt="", endDt=""):
+def setCALMET_INP(output_path="./myCALMET.INP", startDt="", endDt=""):
     if len(startDt) * len(endDt) == 0:
         print("Please set the date")
         return 0
