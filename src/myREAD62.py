@@ -1,7 +1,18 @@
 """
 2025/03/21
 작성자: colabbear
-1. write_up_dat 함수의 output_path 인자를 키워드 인자로 변경
+1.  write_up_dat 함수의 output_path 인자를 키워드 인자로 변경
+
+
+
+2025/03/27
+작성자: colabbear
+1.  한 지점에 대한 여러 csv 파일을 읽을 때 중복을 제거하여 datafrmae을 합치는 과정에서 문제가 있음를 확인함
+    이 문제를 해결하기 위해 일시 칼럼을 index로 바꾸는 과정을 모든 csv파일을 읽은 후로 변경하고
+    (일시(UTC), 기압(hPa)) 두 칼럼이 같은 경우를 중복으로 처리하고 제거하도록 함으로써 해결하고자 함
+2.  칼럼별로 dtype 변경을 하고 NaN 처리된 빈칸에 대해 결측치를 넣는 것을
+    반대로 NaN 처리된 빈칸에 9999. 결측값을 넣고 형변환을 진행하도록 변경
+
 
 
 """
@@ -35,23 +46,21 @@ def read_SONDE(source_folder):
 
                 df = pd.read_csv(csv_file_path, encoding="cp949")
 
-                # 일시 칼럼을 인덱스로 설정
-                # 파일 내에 지점이 여러개일 때 인덱스에 중복이 발생하지만 지점별로 저장하기에 문제 없을 것임
-                df = df.set_index("일시(UTC)")
                 # datetime 형식으로 변경
-                df.index = pd.to_datetime(df.index)
-
-                # 칼럼별로 dtype 적절하게 변경
-                df = df.astype({"기압(hPa)": "float64",
-                                "풍향(deg)": "Int64"})
+                df["일시(UTC)"] = pd.to_datetime(df["일시(UTC)"])
 
                 # 칼럼의 특정 행 값이 빈칸인 경우 결측 처리
                 # 결측 처리 값은 READ62 소스코드 방식에 따름 (READ62.FOR v5.54 1021번째 줄부터 참고)
                 df.loc[df["고도(gpm)"].isna(), "고도(gpm)"] = 9999.
                 df.loc[df["기온(°C)"].isna(), "기온(°C)"] = 999.9
-                df.loc[df["풍향(deg)"].isna(), "풍향(deg)"] = 999
+                df.loc[df["풍향(deg)"].isna(), "풍향(deg)"] = 999.
                 df.loc[df["풍속(knot)"].isna(), "풍속(knot)"] = 999.9
 
+                # 칼럼별로 dtype 적절하게 변경
+                df = df.astype({
+                    "기압(hPa)": "float64",
+                    "풍향(deg)": "int64"
+                })
                 # 기온 및 최저운고 단위 각각 K, ft로 변경하고 칼럼이름에도 반영
                 df.loc[df["기온(°C)"] < 999.9, "기온(°C)"] += 273.15
                 df.loc[df["풍속(knot)"] < 999.9, "풍속(knot)"] *= 0.514791
@@ -64,13 +73,19 @@ def read_SONDE(source_folder):
                         # 수직으로 합치기
                         df_tot[stnID] = pd.concat([df_tot[stnID], df], axis=0)
                         # 중복 인덱스(일자) 제거
-                        df_tot[stnID] = df_tot[stnID].loc[~df_tot[stnID].index.duplicated(keep='last')]
+                        df_tot[stnID] = df_tot[stnID][~df_tot[stnID].duplicated(subset=["일시(UTC)", "기압(hPa)"], keep='last')]
                     else:
                         df_tot[stnID] = df.loc[df["지점"] == stnID]
 
+    # 모든 지점 df에 대해 일시(UTC) 칼럼을 index로 변경
+    for stnID in df_tot:
+        # 일시 칼럼을 인덱스로 설정
+        # 파일 내에 지점이 여러개일 때 인덱스에 중복이 발생하지만 지점별로 저장하기에 문제 없을 것임
+        df_tot[stnID] = df_tot[stnID].set_index("일시(UTC)")
 
 
-def write_up_dat(output_path="./UP.DAT", pstop=700.0, startDt="", endDt="", sonde_path=""):
+
+def write_up_dat(output_path="./UP.DAT", pstop=500.0, startDt="", endDt="", sonde_path=""):
     # Check that first level is at the ground
     # Check that the pressure is decreasing with height
     # Check that the elevation is increasing with height
@@ -124,7 +139,6 @@ def write_up_dat(output_path="./UP.DAT", pstop=700.0, startDt="", endDt="", sond
     # Header without location data
     header2 = " {:5d}{:5d}{:5d}{:5d}{:5d}{:5d}{:4.0f}.{:5d}{:5d}".format(startYYYY, startJJJ, startHH, endYYYY, endJJJ, endHH, pstop, jdat, iform)
     header3 = "     {:1s}    {:1s}    {:1s}    {:1s}".format(LHT, LTEMP, LWD, LWS)
-
 
 
     idx = output_path.rfind('.')
@@ -183,4 +197,5 @@ def write_up_dat(output_path="./UP.DAT", pstop=700.0, startDt="", endDt="", sond
 if __name__ == "__main__":
     # read_SONDE("./test_data/sonde")
     # print(df_tot[47138].at[df_tot[47138].index[0], ])
+    # print((999., 999,) == (999., 999,))
     write_up_dat("./UP.DAT", sonde_path="./test_data/sonde", pstop=500, startDt="202402250000", endDt="202403312300")
