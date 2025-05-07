@@ -1,3 +1,13 @@
+"""
+2025/03/21
+작성자: colabbear
+1. 공공기관 자료(오직 분자료로만 제공됨) 전처리 함수 구현
+2. 함수 주석 약간 수정 (aws, asos 자료는 시간 자료가 기준임을 명시함)
+3. write_surf_dat 함수의 output_path 인자를 키워드 인자로 변경
+
+
+"""
+
 import os
 import pandas as pd
 from datetime import datetime, timedelta
@@ -10,7 +20,7 @@ NONE"""
 # df_tot 은 {지점1 : df, ...} 임
 df_tot = {}
 
-# 기상자료개방포털에서 모든 칼럼을 선택하여 다운받은 asos 파일인 경우를 가정함
+# 기상자료개방포털에서 모든 칼럼을 선택하여 다운받은 asos 시간 자료 파일인 경우를 가정함
 def read_ASOS(source_folder):
     global df_tot
 
@@ -85,7 +95,7 @@ def read_ASOS(source_folder):
 
 
 
-# 기상자료개방포털에서 모든 칼럼을 선택하여 다운받은 aws 파일인 경우를 가정함
+# 기상자료개방포털에서 모든 칼럼을 선택하여 다운받은 aws 시간 자료 파일인 경우를 가정함
 def read_AWS(source_folder):
     global df_tot
 
@@ -142,10 +152,101 @@ def read_AWS(source_folder):
 
 
 
-def write_surf_dat(output_path, startDt="", endDt="", asos_path="", aws_path=""):
+# 기상자료개방포털에서 모든 칼럼을 선택하여 다운받은 공공기관 기상관측 분 자료 파일인 경우를 가정함
+def read_AWOS(source_folder):
+    global df_tot
+
+    df_temp = {}
+    # 소스 폴더 내에 있는 모든 csv 파일 찾아서 read
+    for root, dirs, files in os.walk(source_folder):
+        for file in files:
+            if file.endswith('.csv'):
+                csv_file_path = os.path.join(root, file)
+                print(f"Processing {csv_file_path}")
+
+                df = pd.read_csv(csv_file_path, encoding="cp949")
+
+                # 일시 칼럼을 인덱스로 설정
+                # 파일 내에 지점이 여러개일 때 인덱스에 중복이 발생하지만 지점별로 저장하기에 문제 없을 것임
+                df = df.set_index("일시")
+                # datetime 형식으로 변경
+                df.index = pd.to_datetime(df.index)
+
+                for stnID in df["지점"].unique():
+                    # 같은 지점 다른 데이터가 있는 경우 같은 인덱스는 덮어쓰는 형태로 합치기
+                    if stnID in df_temp:
+                        # 수직으로 합치기
+                        df_temp[stnID] = pd.concat([df_temp[stnID], df], axis=0)
+                        # 중복 인덱스(일자) 제거
+                        df_temp[stnID] = df_temp[stnID].loc[~df_temp[stnID].index.duplicated(keep='last')]
+                    else:
+                        df_temp[stnID] = df.loc[df["지점"] == stnID]
+
+    for stnID in df_temp:
+        """
+        시간 단위로 묶어주기 (NaN 은 평균 계산할 때 제외됨)
+        다음 사이트에서 확인할 수 있는 소스코드를 보면 내용을 찾을 수 있음
+        https://github.com/pandas-dev/pandas/blob/v2.2.3/pandas/core/resample.py#L1342-L1384
+        
+        Compute mean of groups, excluding missing values.
+
+        Parameters
+        ----------
+        numeric_only : bool, default False
+            Include only `float`, `int` or `boolean` data.
+
+            .. versionchanged:: 2.0.0
+
+                numeric_only now defaults to ``False``.
+
+        Returns
+        -------
+        DataFrame or Series
+            Mean of values within each group.
+        """
+        df_temp[stnID] = df_temp[stnID].resample('h').mean()
+
+        # 칼럼의 특정 행 값이 빈칸인 경우 결측 처리
+        # 결측 처리 값은 SMERGE 소스코드 방식에 따름
+        df_temp[stnID].loc[df_temp[stnID]["기온(℃)"].isna(), "기온(℃)"] = 9999.
+        df_temp[stnID].loc[df_temp[stnID]["풍속(m/s)"].isna(), "풍속(m/s)"] = 9999.
+        df_temp[stnID].loc[df_temp[stnID]["풍향(16방위)"].isna(), "풍향(16방위)"] = 9999.
+        df_temp[stnID].loc[df_temp[stnID]["상대습도(%)"].isna(), "상대습도(%)"] = 9999.
+        df_temp[stnID].loc[df_temp[stnID]["현지기압(hPa)"].isna(), "현지기압(hPa)"] = 9999.
+
+        # 칼럼별로 dtype 적절하게 변경
+        df_temp[stnID] = df_temp[stnID].astype({"상대습도(%)": "int"})
+
+        # 기온 단위 K로 바꾸고 칼럼 이름에도 반영
+        # 칼럼 이름 asos, aws와 통일
+        df_temp[stnID].loc[df_temp[stnID]["기온(℃)"] < 9999., "기온(℃)"] += 273.15
+        df_temp[stnID] = df_temp[stnID].rename(
+            columns={
+                "기온(℃)": "기온(K)",
+                "풍향(16방위)": "풍향(deg)",
+                "상대습도(%)": "습도(%)",
+            }
+        )
+
+        # 전운량, 최저운고는 공공기관 기상관측 자료에 없으므로 모두 결측 처리하여 칼럼 추가
+        df_temp[stnID]["전운량(10분위)"] = 9999
+        df_temp[stnID]["최저운고(100ft )"] = 9999
+        # 강수량(mm)도 없으므로(일 누적 강수량만 제공 됨) 모두 결측 처리 하여 칼럼 추가
+        df_temp[stnID]["강수량(mm)"] = 9999
+
+        # IPCODE (Precipitation code) 추가 (SMERGE.for 코드를 참고함 잘 이해 안 되는 부분 있기 때문에 수정이 필요할 수 있음)
+        # 강수량(mm) 자료가 없으므로 모두 결측 처리
+        df_temp[stnID]["IPCODE"] = 9999
+
+    # df_temp를 df_tot에 병합
+    df_tot.update(df_temp)
+
+
+
+def write_surf_dat(output_path="./surf.dat", startDt="", endDt="", asos_path="", aws_path="", awos_path=""):
     global df_tot
     global header
-    if len(asos_path) + len(aws_path) == 0:
+    if len(asos_path) + len(aws_path) + len(awos_path) == 0:
         print("Please set the path that there is data")
         return 0
     if len(startDt) * len(endDt) == 0:
@@ -155,6 +256,8 @@ def write_surf_dat(output_path, startDt="", endDt="", asos_path="", aws_path="")
         read_ASOS(asos_path)
     if len(aws_path) > 0:
         read_AWS(aws_path)
+    if len(awos_path) > 0:
+        read_AWOS(awos_path)
 
 
 
@@ -261,4 +364,11 @@ def isAllDataMissing(t, stations):
 
 
 if __name__ == "__main__":
-    write_surf_dat("./surf.dat", asos_path="./test_data/asos", aws_path="./test_data/aws", startDt="202403010000", endDt="202403312300")
+    write_surf_dat(
+        output_path="./surf.dat",
+        asos_path="./test_data/asos",
+        aws_path="./test_data/aws",
+        awos_path="./test_data/awos",
+        startDt="202403010000",
+        endDt="202403312300"
+    )
