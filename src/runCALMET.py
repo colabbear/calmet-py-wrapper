@@ -1,10 +1,3 @@
-import subprocess
-
-import mySMERGE as smerge
-import myREAD62 as read62
-import setCALMET_INP as setINP
-
-
 """
 2025/03/20
 작성자: colabbear
@@ -23,6 +16,13 @@ CALMET.DAT 출력포맷을 ascii로 변경하고 격자별 위경도값을 추�
 https://calpuff.org/calpuff/download/download.htm#EPA_VERSION 에서 얻은 CALMET_v5.8.5.zip 내의 컴파일 커맨드를 참조하여 진행함
 
 """
+
+import subprocess
+
+import mySMERGE as smerge
+import myREAD62 as read62
+import setCALMET_INP as setINP
+
 
 
 def runCALMET(calmet_path="", CALMET_INP_path=""):
@@ -53,24 +53,25 @@ def runCALMET(calmet_path="", CALMET_INP_path=""):
 
 
 if __name__ == "__main__":
-    smerge.write_surf_dat(
-        "./input_file/surf.dat",
-        asos_path="./test_data/asos",
-        aws_path="./test_data/aws",
-        startDt="202402250000",
-        endDt="202403312300"
-    )
+    # smerge.write_surf_dat(
+    #     "./input_file/surf.dat",
+    #     asos_path="./test_data/asos",
+    #     aws_path="./test_data/aws",
+    #     awos_path="./test_data/awos",
+    #     startDt="202402250000",
+    #     endDt="202403312300"
+    # )
     read62.write_up_dat(
         "./input_file/UP.DAT",
         sonde_path="./test_data/sonde",
         pstop=500,
         startDt="202402250000",
-        endDt="202403312300"
+        endDt="202404020000"
     )
     setINP.setCALMET_INP(
         "./input_file/myCALMET.INP",
-        startDt="202403070000",
-        endDt="202403080000"
+        startDt="202403010000",
+        endDt="202404010000"
     )
 
     runCALMET(calmet_path="./calmet.exe", CALMET_INP_path="./input_file/myCALMET.INP")

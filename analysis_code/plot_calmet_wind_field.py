@@ -28,8 +28,8 @@ latu = 35.75
 
 
 if __name__ == "__main__":
-    startDt = datetime.strptime("202403020000", '%Y%m%d%H%M')
-    endDt = datetime.strptime("202403302300", '%Y%m%d%H%M')
+    startDt = datetime.strptime("202403010000", '%Y%m%d%H%M')
+    endDt = datetime.strptime("202403312300", '%Y%m%d%H%M')
 
     currentDt = startDt
     time_series = []
@@ -37,7 +37,7 @@ if __name__ == "__main__":
         time_series.append(currentDt)
         currentDt += timedelta(hours=1)  # 1시간 간격
 
-    data = rcd.read_ascii_CALMET_DAT("./CALMET.DAT")
+    data = rcd.read_ascii_CALMET_DAT("./output_file/CALMET.DAT")
     nx = int(data['NX'])
     ny = int(data['NY'])
     lat_sample = np.array(data['0']['XLAT'])
@@ -78,5 +78,6 @@ if __name__ == "__main__":
         ax1.quiver(lon_sample, lat_sample, u_sample, v_sample, scale=150)
         ax1.set_title(t.strftime("%Y-%m-%d %H:%M:%S"))
 
-        plt.show()
-        # plt.clf()
+        # plt.show()
+        plt.pause(0.5)
+        plt.clf()

@@ -1,3 +1,11 @@
+"""
+2025/03/21
+작성자: colabbear
+1. write_up_dat 함수의 output_path 인자를 키워드 인자로 변경
+
+
+"""
+
 import os
 import pandas as pd
 from datetime import datetime, timedelta
@@ -62,7 +70,7 @@ def read_SONDE(source_folder):
 
 
 
-def write_up_dat(output_path, pstop=700.0, startDt="", endDt="", sonde_path=""):
+def write_up_dat(output_path="./UP.DAT", pstop=700.0, startDt="", endDt="", sonde_path=""):
     # Check that first level is at the ground
     # Check that the pressure is decreasing with height
     # Check that the elevation is increasing with height
