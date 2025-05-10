@@ -15,6 +15,19 @@
 
 
 
+2025/03/28
+작성자: colabbear
+1.  write_up_dat 함수에서 " 6201 ..." 로 출력되던 것을 " 9999 ..." 로 출력되도록 변경
+    원본 데이터의 format이 non-NCDC data 인 경우 9999라고 함
+    CALMET_UsersGuide.pdf 내용 중 READ56/READ62 Output File Format (Upn.DAT) 부분을 참고하였음
+2.  맨 밑 등압면 관측값들 중에서 하나라도 결측 처리된 값이 있는 경우 모델이 돌아가다가 다음과 같은 오류를 발생시킴을 확인함
+    ERROR IN SUBR. VERTAV -- cell face height not found in height array
+    원래 맨 밑 등압면과 맨 위 등압면 관측값들 중에서 하나라도 결측 처리된 값이 있는 경우 오류가 발생하게 해야 하지만
+    myREAD62.py 코드를 작성할 때 생략하였음
+    이 생략한 부분을 구현할 필요가 있음
+
+
+
 """
 
 import os
@@ -174,7 +187,9 @@ def write_up_dat(output_path="./UP.DAT", pstop=500.0, startDt="", endDt="", sond
                     elif istop == 1: # READ62.for v5.54 1129번째 줄 참고함
                         continue
 
-                    rowTime = ("   6201  {:8s}   {:4d}{:2d}{:2d}{:2d}  {:5d}" + ' '*28 + "{:5d}").format(str(stnID), YYYY, MM, DD, HH, mlev, istop)
+                    # 원본 데이터의 format이 non-NCDC data 인 경우 9999라고 함
+                    # CALMET_UsersGuide.pdf 내용 중 READ56/READ62 Output File Format (Upn.DAT) 부분을 참고하였음
+                    rowTime = ("   9999     {:5s}   {:4d}{:2d}{:2d}{:2d}  {:5d}" + ' '*28 + "{:5d}").format(str(stnID), YYYY, MM, DD, HH, mlev, istop)
                     f.write(rowTime + "\n")
 
                     rowTemp = "   {:6.1f}/{:4.0f}./{:5.1f}/{:3d}/{:3d}"
